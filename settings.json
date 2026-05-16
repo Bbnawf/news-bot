@@ -21,8 +21,13 @@
   "whitelist_enabled": true,
   "mal_check_enabled": true,
   "update_offset": 730584598,
+<<<<<<< HEAD
   "run_now": false,
   "last_full_run": 1778894765.616744,
+=======
+  "run_now": true,
+  "last_full_run": 0,
+>>>>>>> 47af0ab (Trigger RSS run)
   "_init_sent": false,
   "_commands_processed": true
 }
