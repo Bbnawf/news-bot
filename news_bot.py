@@ -503,8 +503,9 @@ def remove_watermark(img_url, source_name):
 
 # ======== صياغة المنشور (نمط Baqer) ========
 def build_caption_ar(title, description, extra_texts, settings):
-    title_ar = translate(title) if settings.get("translate_enabled", True) else title
-    desc_ar = translate(clean_html(description)[:300]) if settings.get("translate_enabled", True) else clean_html(description)[:300]
+    title_ar = title
+    desc_raw = clean_html(description)[:300]
+    desc_ar = translate(desc_raw) if settings.get("translate_enabled", True) else desc_raw
     lines = []
     if extra_texts:
         for txt in extra_texts[:5]:
