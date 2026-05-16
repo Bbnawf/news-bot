@@ -610,9 +610,10 @@ def process_commands(settings):
     def main_menu_b(owner=False):
         b = []
         if owner:
+            b.append([{"text": "\U0001f4e1 لوحة التحكم", "callback_data": "main"}])
             b.append([{"text": "\U0001f4e6 المصادر", "callback_data": "sources"},
                       {"text": "\u2699\ufe0f الإعدادات", "callback_data": "settings"}])
-        b.append([{"text": "\U0001f4ca الإحصائيات", "callback_data": "stats"}])
+            b.append([{"text": "\U0001f4ca الإحصائيات", "callback_data": "stats"}])
         b.append([{"text": "\U0001f30d القناة", "url": "https://t.me/ksbskehwb"},
                   {"text": "\U0001f916 /menu", "callback_data": "main"}])
         return b
@@ -658,7 +659,7 @@ def process_commands(settings):
             cb_data = cb.get("data", "")
             is_owner = (uid == settings.get("owner_id") or username.lower() == settings.get("owner_username", "").lower())
 
-            if cb_data not in ("main", "stats") and not is_owner:
+            if cb_data not in ("main",) and not is_owner:
                 answer_cb(cb_id, "\u274c غير مصرح"); continue
 
             settings["_commands_processed"] = True; changed = True
