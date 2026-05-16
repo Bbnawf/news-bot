@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة تحكم بوت الأخبار</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+  body {
+    background: #0f0f1a;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+  .container { max-width: 700px; width: 100%; }
+  .header {
+    text-align: center;
+    padding: 30px 0;
+    border-bottom: 1px solid #1e1e3a;
+    margin-bottom: 30px;
+  }
+  .header h1 { font-size: 24px; color: #fff; margin-bottom: 8px; }
+  .header h1 span { color: #a855f7; }
+  .header p { color: #888; font-size: 14px; }
+  .header .channel { color: #a855f7; text-decoration: none; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .card {
+    background: #1a1a2e;
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid #2a2a4a;
+    transition: transform 0.2s;
+  }
+  .card:hover { transform: translateY(-2px); }
+  .card .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .card .value { font-size: 28px; font-weight: 700; color: #fff; }
+  .card .sub { font-size: 13px; color: #666; margin-top: 4px; }
+  .card .status-dot {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .status-dot.active { background: #22c55e; box-shadow: 0 0 10px #22c55e55; }
+  .status-dot.inactive { background: #ef4444; box-shadow: 0 0 10px #ef444455; }
+  .card.full { grid-column: 1 / -1; }
+  .section-title { font-size: 14px; color: #888; margin-bottom: 12px; letter-spacing: 1px; }
+  .items-list { list-style: none; }
+  .items-list li {
+    padding: 10px 12px;
+    background: #15152a;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #aaa;
+    direction: ltr;
+    text-align: left;
+    word-break: break-all;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: #a855f7;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    width: 100%;
+    justify-content: center;
+    text-decoration: none;
+  }
+  .btn:hover { background: #9333ea; }
+  .btn:active { transform: scale(0.97); }
+  .btn-secondary {
+    background: #1e1e3a;
+    color: #a855f7;
+    border: 1px solid #2a2a4a;
+  }
+  .btn-secondary:hover { background: #2a2a4a; }
+  .token-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: #15152a;
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 14px;
+    direction: ltr;
+    text-align: left;
+    margin-bottom: 8px;
+  }
+  .token-input::placeholder { color: #555; }
+  .footer { text-align: center; padding: 30px 0; color: #444; font-size: 12px; }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #1a1a2e; color: #fff; padding: 12px 24px;
+    border-radius: 10px; border: 1px solid #2a2a4a;
+    opacity: 0; transition: opacity 0.3s;
+    font-size: 14px; z-index: 100;
+  }
+  .toast.show { opacity: 1; }
+  .error-state { color: #ef4444; font-size: 13px; text-align: center; padding: 20px; }
+  .loading { text-align: center; color: #666; padding: 20px; }
+  @media (max-width: 500px) { .cards { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🤖 لوحة تحكم <span>البوت</span></h1>
+    <p>بوت أخبار الأنمي والألعاب &middot; <a class="channel" href="https://t.me/ksbskehwb" target="_blank">@ksbskehwb</a></p>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="label">حالة البوت</div>
+      <div class="value"><span class="status-dot" id="statusDot"></span><span id="statusText">جاري التحميل...</span></div>
+      <div class="sub" id="lastRunText"></div>
+    </div>
+    <div class="card">
+      <div class="label">الأخبار المنشورة</div>
+      <div class="value" id="postCount">-</div>
+      <div class="sub">في posted_items.json</div>
+    </div>
+    <div class="card full">
+      <div class="label">آخر تنفيذ</div>
+      <div class="value" id="lastConclusion" style="font-size:20px;">-</div>
+      <div class="sub" id="lastRunTime"></div>
+    </div>
+    <div class="card full" id="tokenSection">
+      <div class="label">🛠️ تشغيل يدوي</div>
+      <input class="token-input" id="tokenInput" type="password" placeholder="الصق GitHub Token هنا">
+      <button class="btn" id="runBtn" onclick="triggerRun()">🔄 تشغيل يدوي</button>
+      <div class="sub" style="margin-top:6px;">التوكن ما ينحفظ، يستخدم لمرة واحدة فقط</div>
+    </div>
+    <div class="card full">
+      <a class="btn btn-secondary" href="https://github.com/Bbnawf/news-bot" target="_blank">📂 فتح المستودع على GitHub</a>
+    </div>
+  </div>
+
+  <div class="section-title">🆔 آخر الأخبار المخزنة</div>
+  <ul class="items-list" id="itemsList"><li class="loading">جاري التحميل...</li></ul>
+
+  <div class="footer">
+    بوت أخبار الأنمي والألعاب &middot; <a href="https://github.com/Bbnawf/news-bot" target="_blank" style="color:#666;">GitHub</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const OWNER = 'Bbnawf';
+const REPO = 'news-bot';
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  t.style.borderColor = isError ? '#ef4444' : '#2a2a4a';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function api(path, token) {
+  const headers = { Accept: 'application/vnd.github.v3+json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const r = await fetch(`https://api.github.com${path}`, { headers });
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+async function loadDashboard() {
+  try {
+    const [runs, itemsFile] = await Promise.all([
+      api(`/repos/${OWNER}/${REPO}/actions/runs?per_page=1&status=completed`),
+      api(`/repos/${OWNER}/${REPO}/contents/posted_items.json`)
+    ]);
+
+    const raw = atob(itemsFile.content);
+    const items = JSON.parse(raw);
+    document.getElementById('postCount').textContent = items.length;
+
+    const list = document.getElementById('itemsList');
+    if (items.length === 0) {
+      list.innerHTML = '<li style="color:#666;text-align:center;">لا توجد أخبار بعد</li>';
+    } else {
+      list.innerHTML = items.slice(-10).reverse().map(id =>
+        `<li title="${id}">${id}</li>`
+      ).join('');
+    }
+
+    if (runs.workflow_runs && runs.workflow_runs.length > 0) {
+      const last = runs.workflow_runs[0];
+      const isSuccess = last.conclusion === 'success';
+      document.getElementById('statusDot').className = `status-dot ${isSuccess ? 'active' : 'inactive'}`;
+      document.getElementById('statusText').textContent = isSuccess ? 'شغال ✅' : 'فشل ❌';
+      document.getElementById('lastConclusion').textContent = isSuccess ? '✅ نجاح' : '❌ ' + last.conclusion;
+      const d = new Date(last.created_at);
+      document.getElementById('lastRunText').textContent = `آخر تشغيل: ${d.toLocaleString('ar-SA', { hour12: false })}`;
+      document.getElementById('lastRunTime').textContent = `التنفيذ #${last.run_number}`;
+    }
+  } catch (e) {
+    document.getElementById('statusText').textContent = 'خطأ في الاتصال';
+    document.getElementById('statusDot').className = 'status-dot inactive';
+    document.getElementById('itemsList').innerHTML = `<li class="error-state">❌ ${e.message}</li>`;
+  }
+}
+
+async function triggerRun() {
+  const token = document.getElementById('tokenInput').value.trim();
+  if (!token) { showToast('❌ الرجاء إدخال GitHub Token', true); return; }
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true; btn.textContent = '⏳ جاري التشغيل...';
+  try {
+    const wfs = await api(`/repos/${OWNER}/${REPO}/actions/workflows`, token);
+    const wf = wfs.workflows.find(w => w.name === 'News Bot');
+    if (!wf) throw new Error('Workflow not found');
+
+    await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${wf.id}/dispatches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' })
+    });
+    showToast('✅ تم تشغيل الـ workflow!');
+    document.getElementById('tokenInput').value = '';
+    setTimeout(() => location.reload(), 5000);
+  } catch (e) {
+    showToast('❌ فشل: ' + e.message, true);
+    btn.disabled = false; btn.textContent = '🔄 تشغيل يدوي';
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

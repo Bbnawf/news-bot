@@ -1,0 +1,28 @@
+{
+  "owner_id": 5381442151,
+  "owner_username": "Ozzrr",
+  "interval_minutes": 15,
+  "max_age_days": 2,
+  "max_per_run": 3,
+  "channel_id": "@ksbskehwb",
+  "sources": {
+    "Anime News Network": {
+      "url": "https://www.animenewsnetwork.com/all/rss.xml",
+      "enabled": true
+    },
+    "Gamereactor": {
+      "url": "https://www.gamereactor.me/rss/",
+      "enabled": true
+    }
+  },
+  "extra_sources": {},
+  "translate_enabled": true,
+  "emoji_enabled": true,
+  "whitelist_enabled": true,
+  "mal_check_enabled": true,
+  "update_offset": 730584511,
+  "run_now": false,
+  "last_full_run": 1778891676.268611,
+  "_init_sent": false,
+  "_commands_processed": true
+}

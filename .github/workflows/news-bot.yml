@@ -1,0 +1,42 @@
+name: News Bot
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run news bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: "@ksbskehwb"
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python news_bot.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "news-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+          git add posted_items.json settings.json
+          git diff --quiet && git diff --staged --quiet || \
+            git commit -m "update data [skip ci]"
+          git push
