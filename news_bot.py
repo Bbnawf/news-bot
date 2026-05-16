@@ -608,10 +608,10 @@ def process_commands(settings):
 
     # Menu helpers
     def main_menu_b(owner=False):
-        b = [[{"text": "\U0001f4e1 لوحة التحكم", "callback_data": "main"}]]
+        b = []
         if owner:
-            b.insert(1, [{"text": "\U0001f4e6 المصادر", "callback_data": "sources"},
-                         {"text": "\u2699\ufe0f الإعدادات", "callback_data": "settings"}])
+            b.append([{"text": "\U0001f4e6 المصادر", "callback_data": "sources"},
+                      {"text": "\u2699\ufe0f الإعدادات", "callback_data": "settings"}])
         b.append([{"text": "\U0001f4ca الإحصائيات", "callback_data": "stats"}])
         b.append([{"text": "\U0001f30d القناة", "url": "https://t.me/ksbskehwb"},
                   {"text": "\U0001f916 /menu", "callback_data": "main"}])
@@ -666,12 +666,17 @@ def process_commands(settings):
             ch = settings.get("channel_id", "@ksbskehwb")
 
             if cb_data == "main":
+                posted = load_json(POSTED_FILE, [])
+                active = sum(1 for v in srcs.values() if (v.get("enabled") if isinstance(v, dict) else v))
+                txt = (
+                    "\U0001f916 *بوت أخبار الأنمي والألعاب*\n\n"
+                    f"\U0001f4f0 منشورات: {len(posted)}\n"
+                    f"\U0001f4e6 مصادر نشطة: {active}/{len(srcs)}\n"
+                    f"\u23f1 التكرار: كل {settings['interval_minutes']} د\n\n"
+                    f"\U0001f4e2 @{ch.lstrip('@')}\n\U0001f464 @Ozzrr"
+                )
                 answer_cb(cb_id)
-                edit_menu(chat_id, msg_id,
-                    "\U0001f916 *بوت أخبار الأنمي والألعاب*\n"
-                    "\u2728 ينشر أخبار الأنمي والمانجا والألعاب تلقائياً\n\n"
-                    f"\U0001f4e2 @{ch.lstrip('@')}\n\U0001f464 @Ozzrr",
-                    main_menu_b(is_owner), parse_mode="Markdown")
+                edit_menu(chat_id, msg_id, txt, main_menu_b(is_owner), parse_mode="Markdown")
 
             elif cb_data == "sources" and is_owner:
                 answer_cb(cb_id)
