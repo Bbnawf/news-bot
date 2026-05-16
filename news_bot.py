@@ -520,13 +520,29 @@ def build_caption_ar(title, description, extra_texts, settings):
 
 
 
-# ======== إرسال تيليجرام ========
+# ======== إرسال تيليجرام وقوائم ========
 def inline_keyboard(link):
     kb = []
     if link:
         kb.append([{"text": "\U0001f517 المصدر", "url": link}])
     kb.append([{"text": "\U0001f4e2 @ksbskehwb", "url": "https://t.me/ksbskehwb"}])
     return json.dumps({"inline_keyboard": kb})
+
+def make_menu(chat_id, text, buttons, parse_mode=""):
+    kb = json.dumps({"inline_keyboard": buttons})
+    return requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+        data={"chat_id": chat_id, "text": text[:4096], "parse_mode": parse_mode, "reply_markup": kb},
+        timeout=15).ok
+
+def edit_menu(chat_id, msg_id, text, buttons, parse_mode=""):
+    kb = json.dumps({"inline_keyboard": buttons})
+    return requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText",
+        data={"chat_id": chat_id, "message_id": msg_id, "text": text[:4096], "parse_mode": parse_mode, "reply_markup": kb},
+        timeout=15).ok
+
+def answer_cb(cb_id, text=""):
+    requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/answerCallbackQuery",
+        data={"callback_query_id": cb_id, "text": text, "show_alert": False}, timeout=5)
 
 def send_message(chat_id, text, parse_mode="", link=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -590,11 +606,137 @@ def process_commands(settings):
         return settings
     changed = False
 
+    # Menu helpers
+    def main_menu_b(owner=False):
+        b = [[{"text": "\U0001f4e1 لوحة التحكم", "callback_data": "main"}]]
+        if owner:
+            b.insert(1, [{"text": "\U0001f4e6 المصادر", "callback_data": "sources"},
+                         {"text": "\u2699\ufe0f الإعدادات", "callback_data": "settings"}])
+        b.append([{"text": "\U0001f4ca الإحصائيات", "callback_data": "stats"}])
+        b.append([{"text": "\U0001f30d القناة", "url": "https://t.me/ksbskehwb"},
+                  {"text": "\U0001f916 /menu", "callback_data": "main"}])
+        return b
+
+    def srcs_menu(srcs):
+        b = []
+        for name, info in srcs.items():
+            en = info.get("enabled", True) if isinstance(info, dict) else True
+            s = "\u2705" if en else "\u274c"
+            action = "off" if en else "on"
+            b.append([{"text": f"{s} {name}", "callback_data": f"src|{action}|{name}"}])
+        b.append([{"text": "\u2795 إضافة مصدر", "callback_data": "addsrc"}])
+        b.append([{"text": "\U0001f519 رجوع", "callback_data": "main"}])
+        return b
+
+    def settings_menu(s):
+        wl = "\u2705" if s.get("whitelist_enabled", True) else "\u274c"
+        ml = "\u2705" if s.get("mal_check_enabled", True) else "\u274c"
+        tr = "\u2705" if s.get("translate_enabled", True) else "\u274c"
+        b = [
+            [{"text": f"\U0001f4e6 القائمة البيضاء {wl}", "callback_data": "set|whitelist"}],
+            [{"text": f"\U0001f50d فحص MAL {ml}", "callback_data": "set|mal"}],
+            [{"text": f"\U0001f310 الترجمة {tr}", "callback_data": "set|translate"}],
+            [{"text": f"\u23f1 التكرار: {s['interval_minutes']}د", "callback_data": "set|interval"}],
+            [{"text": f"\U0001f4c5 فلترة: {s['max_age_days']} يوم", "callback_data": "set|maxage"}],
+            [{"text": f"\U0001f4ca الحد: {s['max_per_run']}", "callback_data": "set|maxitems"}],
+            [{"text": "\U0001f519 رجوع", "callback_data": "main"}],
+        ]
+        return b
+
     for update in data.get("result", []):
         nid = update["update_id"]
+        if nid >= offset: offset = nid + 1
+
+        # ====== Callback Queries ======
+        cb = update.get("callback_query")
+        if cb:
+            chat_id = cb["message"]["chat"]["id"]
+            msg_id = cb["message"]["message_id"]
+            uid = cb["from"]["id"]
+            username = cb.get("from", {}).get("username", "")
+            cb_id = cb["id"]
+            cb_data = cb.get("data", "")
+            is_owner = (uid == settings.get("owner_id") or username.lower() == settings.get("owner_username", "").lower())
+
+            if cb_data not in ("main", "stats") and not is_owner:
+                answer_cb(cb_id, "\u274c غير مصرح"); continue
+
+            settings["_commands_processed"] = True; changed = True
+            srcs = settings.get("sources", {})
+            ch = settings.get("channel_id", "@ksbskehwb")
+
+            if cb_data == "main":
+                answer_cb(cb_id)
+                edit_menu(chat_id, msg_id,
+                    "\U0001f916 *بوت أخبار الأنمي والألعاب*\n"
+                    "\u2728 ينشر أخبار الأنمي والمانجا والألعاب تلقائياً\n\n"
+                    f"\U0001f4e2 @{ch.lstrip('@')}\n\U0001f464 @Ozzrr",
+                    main_menu_b(is_owner), parse_mode="Markdown")
+
+            elif cb_data == "sources" and is_owner:
+                answer_cb(cb_id)
+                if not srcs:
+                    edit_menu(chat_id, msg_id, "\U0001f4e6 لا توجد مصادر مضافة.\nاستعمل /addsource", srcs_menu(srcs))
+                else:
+                    txt = "\U0001f4e6 *المصادر* - اضغط لتفعيل/تعطيل"
+                    edit_menu(chat_id, msg_id, txt, srcs_menu(srcs), parse_mode="Markdown")
+
+            elif cb_data.startswith("src|") and is_owner:
+                _, action, name = cb_data.split("|", 2)
+                if name in srcs and isinstance(srcs[name], dict):
+                    srcs[name]["enabled"] = (action == "on")
+                    settings["sources"] = srcs
+                    save_json(SETTINGS_FILE, settings)
+                answer_cb(cb_id, "\u2705 تم التبديل")
+                edit_menu(chat_id, msg_id, "\U0001f4e6 *المصادر*", srcs_menu(srcs), parse_mode="Markdown")
+
+            elif cb_data == "addsrc" and is_owner:
+                answer_cb(cb_id, "أرسل: /addsource <اسم> <رابط RSS>")
+                send_message(chat_id, "\u2795 أرسل الأمر التالي:\n/addsource <اسم المصدر> <رابط RSS>")
+
+            elif cb_data == "settings" and is_owner:
+                answer_cb(cb_id)
+                s = settings
+                edit_menu(chat_id, msg_id, f"\u2699\ufe0f *الإعدادات*\n\n\u23f1 التكرار: {s['interval_minutes']}د\n\U0001f4c5 فلترة: {s['max_age_days']} يوم\n\U0001f4ca الحد: {s['max_per_run']}\n",
+                    settings_menu(s), parse_mode="Markdown")
+
+            elif cb_data.startswith("set|") and is_owner:
+                _, key = cb_data.split("|", 1)
+                if key == "whitelist":
+                    settings["whitelist_enabled"] = not settings.get("whitelist_enabled", True)
+                elif key == "mal":
+                    settings["mal_check_enabled"] = not settings.get("mal_check_enabled", True)
+                elif key == "translate":
+                    settings["translate_enabled"] = not settings.get("translate_enabled", True)
+                elif key in ("interval", "maxage", "maxitems"):
+                    answer_cb(cb_id, f"استعمل الأمر: /{key} <قيمة>")
+                    continue
+                save_json(SETTINGS_FILE, settings)
+                answer_cb(cb_id, "\u2705 تم التبديل")
+                s = settings
+                edit_menu(chat_id, msg_id, f"\u2699\ufe0f *الإعدادات*", settings_menu(s), parse_mode="Markdown")
+
+            elif cb_data == "stats":
+                posted = load_json(POSTED_FILE, [])
+                active = sum(1 for v in srcs.values() if (v.get("enabled") if isinstance(v, dict) else v))
+                edit_menu(chat_id, msg_id,
+                    f"\U0001f4ca *إحصائيات البوت*\n\n"
+                    f"\U0001f4f0 إجمالي المنشور: {len(posted)}\n"
+                    f"\U0001f4e6 مصادر نشطة: {active}/{len(srcs)}\n"
+                    f"\u23f1 تكرار: كل {settings['interval_minutes']} د\n"
+                    f"\U0001f4c5 فلترة: {settings['max_age_days']} يوم",
+                    [[{"text": "\U0001f519 رجوع", "callback_data": "main"}]], parse_mode="Markdown")
+                answer_cb(cb_id)
+
+            elif cb_data in ("run", "trigger") and is_owner:
+                send_message(chat_id, "\U0001f504 يتم التشغيل...")
+                answer_cb(cb_id, "\U0001f504 جارِ التشغيل")
+
+            continue
+
+        # ====== Regular Messages ======
         msg = update.get("message") or update.get("edited_message")
         if not msg: continue
-        if nid >= offset: offset = nid + 1
         chat_id = msg.get("chat", {}).get("id")
         uid = msg.get("from", {}).get("id")
         username = msg.get("from", {}).get("username", "")
@@ -604,12 +746,14 @@ def process_commands(settings):
         cmd = parts[0].lower()
         arg = " ".join(parts[1:]) if len(parts) > 1 else ""
 
-        if cmd == "/start":
-            send_message(chat_id,
-                "اهلا بك في بوت أخبار الأنمي والألعاب 🎮\n\n"
-                "📢 @ksbskehwb\n"
-                "👤 @Ozzrr\n\n"
-                "/admin - لوحة التحكم")
+        if cmd in ("/start", "/menu"):
+            is_owner = (uid == settings.get("owner_id") or username.lower() == settings.get("owner_username", "").lower())
+            ch = settings.get("channel_id", "@ksbskehwb")
+            make_menu(chat_id,
+                "\U0001f916 *بوت أخبار الأنمي والألعاب*\n"
+                "\u2728 ينشر أخبار الأنمي والمانجا والألعاب تلقائياً\n\n"
+                f"\U0001f4e2 @{ch.lstrip('@')}\n\U0001f464 @Ozzrr",
+                main_menu_b(is_owner), parse_mode="Markdown")
             settings["_commands_processed"] = True
             changed = True
             continue
@@ -802,25 +946,13 @@ def process_commands(settings):
                 send_message(chat_id, "❌ /mal on/off")
 
         elif cmd in ("/help", "/admin"):
-            send_message(chat_id,
-                "🤖 الأوامر\n\n"
-                "📡 المصادر:\n"
-                "/addsource <اسم> <رابط>\n"
-                "/removesource <اسم>\n"
-                "/listsources\n"
-                "/source <اسم> on/off\n\n"
-                "📎 المراجع:\n"
-                "/ref <رابط> <رابط إضافي>\n"
-                "/refs | /delref <رابط>\n\n"
-                "⚙️ الإعدادات:\n"
-                "/settings\n"
-                "/interval <د>\n"
-                "/maxage <أيام>\n"
-                "/maxitems <عدد>\n"
-                "/whitelist on/off\n"
-                "/mal on/off\n\n"
-                "📊 /status | /stats\n"
-                "🔄 /run", parse_mode="")
+            is_owner = True
+            ch = settings.get("channel_id", "@ksbskehwb")
+            make_menu(chat_id,
+                "\U0001f916 *بوت أخبار الأنمي والألعاب*\n"
+                "\u2728 ينشر أخبار الأنمي والمانجا والألعاب تلقائياً\n\n"
+                f"\U0001f4e2 @{ch.lstrip('@')}\n\U0001f464 @Ozzrr",
+                main_menu_b(is_owner), parse_mode="Markdown")
 
         elif cmd == "/run":
             send_message(chat_id, "🔄 يتم التشغيل...")
