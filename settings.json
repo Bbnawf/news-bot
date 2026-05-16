@@ -18,7 +18,7 @@
   "extra_sources": {},
   "translate_enabled": true,
   "emoji_enabled": true,
-  "whitelist_enabled": true,
+  "whitelist_enabled": false,
   "mal_check_enabled": true,
   "update_offset": 730584598,
   "run_now": false,
