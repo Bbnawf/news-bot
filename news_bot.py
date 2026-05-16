@@ -348,7 +348,7 @@ MAJOR_GAMES = [
     "stray", "kena",
 ]
 
-ALL_MAJOR = [w.lower() for w in MAJOR_ANIME + MAJOR_GAMES]
+ALL_MAJOR = sorted(set(w.lower() for w in MAJOR_ANIME + MAJOR_GAMES), key=len, reverse=True)
 
 # ======== ترجمة ========
 translator = None
@@ -501,9 +501,26 @@ def remove_watermark(img_url, source_name):
     except: pass
     return img_url
 
+# ======== استخراج اسم العمل من العنوان ========
+def extract_known_title(title):
+    t = title.lower()
+    for name in ALL_MAJOR:
+        idx = t.find(name)
+        if idx != -1:
+            before = title[:idx].strip()
+            after = title[idx+len(name):].strip()
+            rest = (before + " " + after).strip()
+            return title[idx:idx+len(name)], rest
+    return None, title
+
 # ======== صياغة المنشور (نمط Baqer) ========
 def build_caption_ar(title, description, extra_texts, settings):
-    title_ar = title
+    work, rest = extract_known_title(title)
+    if work:
+        rest_ar = translate(rest) if settings.get("translate_enabled", True) else rest
+        title_line = f"{work} {rest_ar}" if rest_ar and rest_ar != rest else work
+    else:
+        title_line = title
     desc_raw = clean_html(description)[:300]
     desc_ar = translate(desc_raw) if settings.get("translate_enabled", True) else desc_raw
     lines = []
@@ -512,8 +529,9 @@ def build_caption_ar(title, description, extra_texts, settings):
             lines.append(f"<b>\u25c8 {txt.strip()[:200]}</b>")
     else:
         desc_short = "\n".join(desc_ar.split("\n")[:1])[:200]
-        lines.append(f"<b>\u2756 {unescape(title_ar)}</b>")
-        if desc_short and desc_short != title_ar[:100]:
+        lines.append(f"<b>\u2756 {unescape(title_line)}</b>")
+        if desc_short and desc_short != title_line[:100]:
+            lines.append("")
             lines.append(f"<b>\u25c8 {unescape(desc_short)}</b>")
     lines.append("")
     lines.append(" @ksbskehwb")
