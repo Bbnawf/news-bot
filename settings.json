@@ -20,9 +20,9 @@
   "emoji_enabled": true,
   "whitelist_enabled": false,
   "mal_check_enabled": true,
-  "update_offset": 730584632,
+  "update_offset": 730584668,
   "run_now": false,
-  "last_full_run": 1778976571.045355,
+  "last_full_run": 1778991640.551156,
   "_init_sent": false,
   "_commands_processed": true
 }
